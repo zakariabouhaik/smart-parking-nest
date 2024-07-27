@@ -1,6 +1,8 @@
+import * as https from 'https';
 import { Injectable,Logger  } from "@nestjs/common";
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { response } from "express";
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class KeycloaskService{
@@ -9,7 +11,18 @@ export class KeycloaskService{
     private realm='SmartParking';
     private clientId='nestjs-app';
     private readonly logger = new Logger(KeycloaskService.name);
-    
+
+    private readonly axios: AxiosInstance;
+
+    constructor() {
+        // Create a new HTTPS agent with the specified certificate
+        const agent = new https.Agent({ rejectUnauthorized: false });
+
+        // Create a new Axios instance with the custom agent
+        this.axios = axios.create({
+            httpsAgent: agent
+        });
+    }
 
     async createUser(email:string,password:string):Promise<string>{
         const token = await this.getAdminToken();
@@ -19,13 +32,16 @@ export class KeycloaskService{
             const isEmail = email.includes('@');
             const username = isEmail ? email:`${email}`
 
+
+
+
             console.log('Creating user this user name :', username);
-            const response = await axios.post(
-              "http://localhost:8081/admin/realms/SmartParking/users",
+            const response = await this.axios.post(
+              "https://16.171.20.170:8082/admin/realms/SmartParking/users",
               {
                 enabled: true,
                 username: username,
-                email: isEmail? email :"salam@getMaxListeners.com",
+                email: isEmail? email : `user_${uuidv4()}@example.com`,
                 credentials: [{ type: 'password', value: password, temporary: false }],
               },
               {
@@ -52,8 +68,8 @@ export class KeycloaskService{
         async getUserIdByUsername(username: string): Promise<string> {
             const token = await this.getAdminToken();
             try {
-              const response = await axios.get(
-                `http://localhost:8081/admin/realms/SmartParking/users?username=${encodeURIComponent(username)}`,
+              const response = await  this.axios.get(
+                `https://16.171.20.170:8082/admin/realms/SmartParking/users?username=${encodeURIComponent(username)}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                 }
@@ -78,8 +94,8 @@ export class KeycloaskService{
     async getUserIdByEmail(email: string): Promise<string> {
         const token = await this.getAdminToken();
         try {
-            const response = await axios.get(
-                `http://localhost:8081/admin/realms/SmartParking/users?email=${encodeURIComponent(email)}`,
+            const response = await  this.axios.get(
+                `https://16.171.20.170:8082/admin/realms/SmartParking/users?email=${encodeURIComponent(email)}`,
                 {
                     headers: { Authorization: `Bearer ${token}` },
                 }
@@ -101,12 +117,12 @@ export class KeycloaskService{
 
     private async getAdminToken():Promise<string>{
 
-      try{  const response = await axios.post(
-            "http://localhost:8081/realms/SmartParking/protocol/openid-connect/token",
+      try{  const response = await  this.axios.post(
+            "https://16.171.20.170:8082/realms/SmartParking/protocol/openid-connect/token",
             new URLSearchParams({
                 grant_type: 'client_credentials',
                 client_id: 'nestjs-app',
-                client_secret:'Biw3kExVFU83zCyQLmbJ6kDGtfy0rONc'
+                client_secret:'hcgnqQxNTHN3ALkAeZnWyZ3xMdTyqZ85'
             }),
             {
                 headers:{'Content-Type':'application/x-www-form-urlencoded'}
@@ -127,7 +143,7 @@ export class KeycloaskService{
 
  async sendSmsOtp(phoneNumber: string, otp: string): Promise<void> {
     try {
-      const response = await axios.put(
+      const response = await  this.axios.put(
         `Http://197.230.127.32:29590/SMSGatewayServicesNB/resources/smsgateway/sendmessage/sms/11111111111111/`,
         {
             "headerRequest": {
@@ -164,8 +180,8 @@ export class KeycloaskService{
 
     try{
         this.logger.debug(`Attempting login for user: ${email}`)
-      const response= await axios.post(
-        'http://localhost:8081/realms/SmartParking/protocol/openid-connect/token',
+      const response= await  this.axios.post(
+        'https://16.171.20.170:8082/realms/SmartParking/protocol/openid-connect/token',
       
       new URLSearchParams({
         grant_type: 'password',
@@ -197,7 +213,7 @@ export class KeycloaskService{
 
 async verifyToken(token:string):Promise<boolean>{
     try{
-        const response = await axios.post('http://localhost:8081/realms/SmartParking/protocol/openid-connect/token/introspect',
+        const response = await  this.axios.post('https://16.171.20.170:8082/realms/SmartParking/protocol/openid-connect/token/introspect',
             new URLSearchParams({
                 client_id: 'nestjs-app',
                 client_secret: 'Biw3kExVFU83zCyQLmbJ6kDGtfy0rONc',
@@ -223,7 +239,7 @@ async logout(refreshToken:string):Promise<void>{
     }
 try{
     this.logger.debug('Attemping to logout user');
-    const response = await axios.post('http://localhost:8081/realms/SmartParking/protocol/openid-connect/logout',
+    const response = await  this.axios.post('https://16.171.20.170:8082/realms/SmartParking/protocol/openid-connect/logout',
         new URLSearchParams(
             {
                 client_id: 'nestjs-app',
@@ -266,8 +282,8 @@ try{
 
             if (user.attributes.otpcode[0] === otp) {
                 // Enable the user and remove the verification code
-                await axios.put(
-                    `http://localhost:8081/admin/realms/SmartParking/users/${userId}`,
+                await  this.axios.put(
+                    `https://16.171.20.170:8082/admin/realms/SmartParking/users/${userId}`,
                     {
                         enabled: true,
                         attributes: {
@@ -294,8 +310,8 @@ try{
     private async getUserById(userId: string): Promise<any> {
         const token = await this.getAdminToken();
         try {
-            const response = await axios.get(
-                `http://localhost:8081/admin/realms/SmartParking/users/${userId}`,
+            const response = await  this.axios.get(
+                `https://16.171.20.170:8082/admin/realms/SmartParking/users/${userId}`,
                 {
                     headers: { Authorization: `Bearer ${token}` },
                     params: { briefRepresentation: false }
@@ -316,8 +332,8 @@ try{
     async resetPassword(userId: string, password: string): Promise<void> {
       const token = await this.getAdminToken();
       try {
-        await axios.put(
-          `http://localhost:8081/admin/realms/SmartParking/users/${userId}`,
+        await  this.axios.put(
+          `https://16.171.20.170:8082/admin/realms/SmartParking/users/${userId}`,
           {
             credentials: [
               {
