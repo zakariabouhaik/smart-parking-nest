@@ -4,6 +4,7 @@ import { Model } from "mongoose";
 import { USER } from "./user.model";
 import { KeycloaskService } from "src/keycloakService";
 import { error } from "console";
+import { throwError } from "rxjs";
 
 @Injectable()
 export class UserServices{
@@ -34,24 +35,67 @@ async resendMessage(
 }
 
 async CreateUserMongo(
-    name:string,
-    lastname:string,
+  
     phonenumber:string,
 ):Promise<any>{
-     
+    
+    let userphone = await this.UserModel.findOne({ phonenumber: phonenumber })
+
         try{
+            if(userphone && !userphone.keycloakId){
+            
+                const otpcode=  this.keycloakService.generateOTP();
+                userphone.otpcode=otpcode;
+                await this.keycloakService.sendSmsOtp(phonenumber,otpcode)
+                await userphone.save();
+                return userphone;
+            }
+       else{ 
         const otpcode=  this.keycloakService.generateOTP();
         await this.keycloakService.sendSmsOtp(phonenumber,otpcode)
-        const NewUser = new this.UserModel({name,lastname,phonenumber,otpcode});
+        const NewUser = new this.UserModel({phonenumber,otpcode});
         await NewUser.save();
         console.log('Saved user:', NewUser.id);
         return NewUser;
+    }
         }
         catch(error){
         console.log(error.message)
         }
 }
 
+async updateProfile(userId: string, firstName: string, lastName: string, email: string)
+: Promise<USER> {
+    try{
+        const user = await this.UserModel.findById(userId);
+        if(!user){
+            throw new Error('User not found');
+        }
+        user.name=firstName;
+        user.lastname=lastName;
+
+        await this.keycloakService.updateUserEmail(user.keycloakId, email);
+
+        await user.save();
+        return user;
+    }catch(error){
+        console.error('Error updating profile:', error);
+    throw error;
+    }
+}
+
+async getuser(userId:string):Promise<any>{
+    try{
+        const user = await this.UserModel.findById(userId);
+        const email = await this.keycloakService.getUserEmailById(user.keycloakId);
+        return{
+            user,
+            email
+        }
+    }catch(error){
+        console.log(error)
+    }
+}
 
 async CreateUserKey(
     email:string,
@@ -141,9 +185,19 @@ async resetPassword(userId: string, password: string): Promise<void> {
 
 
 
-    async login (email:string,password:string):Promise<{access_token: string; refresh_token: string }>{
+    async login (email:string,password:string):Promise<{access_token: string; refresh_token: string ,userId: string }>{
         try{
-            return await this.keycloakService.login(email,password);
+            
+            const keycloakResponse = await this.keycloakService.login(email,password);
+            const user = await this.UserModel.findOne({ phonenumber: email });
+           
+            return {
+                access_token: keycloakResponse.access_token,
+                refresh_token: keycloakResponse.refresh_token,
+                userId: user._id.toString()
+              };
+          
+
         }catch(error){
             throw new Error('Login Faieled: '+ error.message)
         }

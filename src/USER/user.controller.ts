@@ -1,4 +1,4 @@
-import { Controller, Post ,Body, HttpException, HttpStatus,Logger, Put } from "@nestjs/common";
+import { Controller, Post ,Body, HttpException, HttpStatus,Logger, Put,Get,Param } from "@nestjs/common";
 import { UserServices } from "./user.service";
 import { USER } from "./user.model";
 import { KeycloaskService } from "src/keycloakService";
@@ -16,18 +16,48 @@ export class UserController{
     @Post('registemongo')
     async CreateUserMongo(
          @Body() User:{
-            name:string,
-            lastname:string,
+        
             phonenumber:string,
          }
      ):Promise<string>{
-        return await this.UserService.CreateUserMongo(
-             User.name,
-             User.lastname,
-             User.phonenumber,
-         );
-          
+       try{ const newUser = await this.UserService.CreateUserMongo(
+           
+            User.phonenumber,
+          );
+          return newUser;         }
+          catch(error){
+            if(error.message==='User Already exists'){
+                throw new HttpException('User already exists',HttpStatus.CONFLICT);
+            }
+            throw new HttpException('Registration failed', HttpStatus.INTERNAL_SERVER_ERROR);
+        
+          } 
      }
+
+     @Put('updateProfile/:userId')
+async updateProfile(
+    @Body() data: { firstName: string, lastName: string, email: string }, 
+    @Param('userId')userId:string) {
+  try {
+    const updateUser= await this.UserService.updateProfile(userId,data.firstName,data.lastName,data.email);
+    return updateUser;
+}
+    catch (error) {
+        throw new HttpException('Profile update failed: ' + error.message, HttpStatus.BAD_REQUEST);
+      }
+    
+}
+
+@Get('getuser/:userId')
+async getuser(@Param('userId') userId: string) {
+  try {
+    return await this.UserService.getuser(userId);
+  } catch (error) {
+    console.log(error);
+    throw new HttpException('Failed to get user', HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+}
+
 
      @Post('registekeyclok')
      async CreateUserekeyclok(
@@ -118,6 +148,7 @@ export class UserController{
                 message: 'Login successful',
                 access_token: result.access_token,
                 refresh_token: result.refresh_token,
+                userId: result.userId
             };
         }catch(error){
             throw new HttpException('Login failed'+error.message,HttpStatus.UNAUTHORIZED)

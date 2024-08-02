@@ -32,16 +32,13 @@ export class KeycloaskService{
             const isEmail = email.includes('@');
             const username = isEmail ? email:`${email}`
 
-
-
-
             console.log('Creating user this user name :', username);
             const response = await this.axios.post(
               "https://16.171.20.170:8082/admin/realms/SmartParking/users",
               {
                 enabled: true,
                 username: username,
-                email: isEmail? email : `user_${uuidv4()}@example.com`,
+                email: isEmail? email : `${email}@example.com`,
                 credentials: [{ type: 'password', value: password, temporary: false }],
               },
               {
@@ -62,6 +59,50 @@ export class KeycloaskService{
           } catch (error) {
             console.error('Error creating user in Keycloak:', error.response?.data || error.message);
             throw error;
+          }
+        }
+
+
+        async updateUserEmail(userId: string, email: string): Promise<void> {
+          const token = await this.getAdminToken();
+          try{
+            await this.axios.put(
+              `https://16.171.20.170:8082/admin/realms/SmartParking/users/${userId}`,
+              {
+                email:email,
+                emailVerified: false
+              },
+              {
+                headers: { Authorization: `Bearer ${token}` }
+              }
+            );
+
+          }catch (error) {
+            console.error('Error updating user email in Keycloak:', error);
+            throw error;
+          }
+
+
+        }
+
+        async getUserEmailById(userId: string): Promise<string> {
+          const token = await this.getAdminToken();
+          try {
+            const response = await this.axios.get(
+              `https://16.171.20.170:8082/admin/realms/SmartParking/users/${userId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+            
+            if (response.data && response.data.email) {
+              console.log('Found user email:', response.data.email);
+              return response.data.email;
+            }
+            throw new Error('Email not found for user');
+          } catch (error) {
+            this.logger.error('Get user email error:', error.response?.data || error.message);
+            throw new Error('Failed to get user email: ' + (error.response?.data?.error_description || error.message));
           }
         }
 
@@ -143,7 +184,7 @@ export class KeycloaskService{
 
  async sendSmsOtp(phoneNumber: string, otp: string): Promise<void> {
     try {
-      const response = await  this.axios.put(
+      const response = await  axios.put(
         `Http://197.230.127.32:29590/SMSGatewayServicesNB/resources/smsgateway/sendmessage/sms/11111111111111/`,
         {
             "headerRequest": {
@@ -186,7 +227,7 @@ export class KeycloaskService{
       new URLSearchParams({
         grant_type: 'password',
           client_id: 'nestjs-app',
-          client_secret: 'Biw3kExVFU83zCyQLmbJ6kDGtfy0rONc',
+          client_secret: 'hcgnqQxNTHN3ALkAeZnWyZ3xMdTyqZ85',
           username: email,
           password: password,
       }),
